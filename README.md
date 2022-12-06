@@ -1,2 +1,2 @@
 # SPI-master-slave
-Counter and SPI(master slvae) and Error check project
+Counter and SPI(master-slave) and Error check project
