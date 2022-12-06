@@ -5,18 +5,18 @@ use IEEE.std_logic_unsigned.all;
 entity TOP is
     generic (
         constant DATA_IN_LENGTH   : natural  := 8     -- data is n bit
-        );    
+    );    
     port (
         RESET_TOP   :   in      std_logic   ;
         CLK_TOP     :   in      std_logic   ;
         ENABLE_TOP  :   in      std_logic   ;   
-        ERROR_TOP   :   out     std_logic         
+        ERROR_TOP   :   out     std_logic_vector(3 downto 0)          
     );
 end TOP;
 
 architecture STRUCTRUAL of TOP is
 
-    component  counter is
+    component  COUNTER is
         generic( 
             number_of_bit : integer := 8        -- Counter is n bit
         );     
@@ -30,7 +30,7 @@ architecture STRUCTRUAL of TOP is
         );
     end component;
 
-    component spi_master is
+    component SPI_MASTER is
         generic (
             constant   data_in_length  : natural   :=  8 ;     --data is n bit
             constant   CPOL            : std_logic := '0';     --polarity in st_idle state
@@ -38,21 +38,21 @@ architecture STRUCTRUAL of TOP is
             constant   k               : integer   :=  5       --buad rate= bit rate= 10Mbit/s (assune clk=100MHz) ===> clk/2k=clk_spi
         );     
         port (
-            reset          :   in      std_logic   ;
-            clk            :   in      std_logic   ;
+            RESET_I        :   in      std_logic   ;
+            CLK_I          :   in      std_logic   ;
             ----------------------input--------------------------------------------
-            data_in        :   in      std_logic_vector(data_in_length-1 downto 0);
-            valid_in       :   in      std_logic   ;
-            ready_out      :   out     std_logic   ;
+            DATA_I         :   in      std_logic_vector(data_in_length-1 downto 0);
+            VALID_I        :   in      std_logic   ;
+            READY_O        :   out     std_logic   ;
             ----------------------output-------------------------------------------
             SDO            :   out     std_logic   ;     --ss:slave select active low
             SDI            :   in      std_logic   ;
-            ss             :   out     std_logic   ;
+            SS             :   out     std_logic   ;
             sclk           :   out     std_logic   
         );
     end component;
 
-    component spi_slave is
+    component SPI_SLAVE is
         generic (
             constant data_in_length   : natural  := 8 ;    -- data is n bit
             constant CPOL : std_logic := '0';              -- polarity in st_idle state
@@ -89,10 +89,10 @@ architecture STRUCTRUAL of TOP is
     signal ready_counter_im : std_logic :='0'   ;
     signal data_counter_im       : std_logic_vector(7 downto 0) := (others => '0');
 
-    signal SDI_im   : std_logic :='0'   ;
-    signal SDO_im   : std_logic :='0'   ;
-    signal ss_im    : std_logic :='0'   ;
-    signal sclk_im  : std_logic :='0'   ;
+    signal SDI_master_im    : std_logic :='0' ;
+    signal SDO_master_im    : std_logic :='0' ;
+    signal ss_im            : std_logic :='0' ;
+    signal sclk_im          : std_logic :='0' ;
 
     signal valid_error_check_im : std_logic :='0'   ; 
     signal ready_error_check_im : std_logic :='0'   ;
@@ -106,7 +106,7 @@ architecture STRUCTRUAL of TOP is
 
 begin
 
-    counter_I0 : counter 
+    COUNTER_I0 : COUNTER 
         port map (
             enable     => enable_top,
             reset      => reset_top, 
@@ -116,25 +116,25 @@ begin
             data_out   => data_counter_im       
         );  
 
-    spi_master_I0 : spi_master 
+    SPI_MASTER_I0 : SPI_MASTER 
         port map(
-            reset      => reset_top,
-            clk        => clk_top,
-            data_in    => data_counter_im,
-            valid_in   => valid_counter_im,
-            ready_out  => ready_counter_im,
-            SDO        => SDO_im,
-            SDI        => SDI_im,
-            ss         => ss_im,
-            sclk       => sclk_im
+            RESET_I     => reset_top,
+            CLK_I       => clk_top,
+            DATA_I      => data_counter_im,
+            VALID_I     => valid_counter_im,
+            READY_O     => ready_counter_im,
+            SDO         => SDO_master_im,
+            SDI         => SDI_master_im,
+            SS          => ss_im,
+            SCLK        => sclk_im
         ); 
 
-    spi_slave_I0 : spi_slave 
+    SPI_SLAVE_I0 : SPI_SLAVE 
         port map(
             reset        => reset_top,
             clk          => clk_top,
-            SDO          => SDO_im,
-            SDI          => SDI_im,
+            SDO          => SDI_master_im,
+            SDI          => SDO_master_im,
             sclk         => sclk_im,
             ss           => ss_im,
             data_out     => data_error_check_im,
