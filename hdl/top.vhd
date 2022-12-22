@@ -4,7 +4,11 @@ use IEEE.std_logic_unsigned.all;
 
 entity TOP is
     generic (
-        constant DATA_IN_LENGTH   : natural  := 8     -- data is n bit
+        constant    DATA_IN_LENGTH   : natural   := 8 ;            -- data is N bit
+        constant    CPOL             : std_logic := '0' ;          -- polarity in st_idle state
+        constant    CPHA             : std_logic := '0' ;          -- edge of clock in sampled data
+        constant    buad_rate_spi    : integer   := 10 ;           -- buad rate= bit rate= buad_rate_spi (Mbit/s) ===> buad_rate_spi (default) = 10MHz
+        constant    clk_input        : integer   := 100            -- Clock manufacturer SCLK (it is assumed) = 100 MHz 
     );    
     port (
         RESET_TOP   :   in      std_logic   ;
@@ -18,7 +22,7 @@ architecture STRUCTRUAL of TOP is
 
     component  COUNTER is
         generic( 
-            number_of_bit : integer := 8        -- Counter is n bit
+            number_of_bit : integer := DATA_IN_LENGTH        -- Counter is n bit
         );     
         port (
             enable      : in     std_logic   ;
@@ -30,33 +34,33 @@ architecture STRUCTRUAL of TOP is
         );
     end component;
 
-    component SPI_MASTER is
+    component SPI_MASTER_TOP is
         generic (
-            constant   data_in_length  : natural   :=  8 ;     --data is n bit
-            constant   CPOL            : std_logic := '0';     --polarity in st_idle state
-            constant   CPHA            : std_logic := '0';     --edge of clock in sampled data
-            constant   k               : integer   :=  5       --buad rate= bit rate= 10Mbit/s (assune clk=100MHz) ===> clk/2k=clk_spi
-        );     
+            constant    DATA_IN_LENGTH  : natural       :=  DATA_IN_LENGTH ;     
+            constant    buad_rate_spi   : integer       :=  buad_rate_spi ;      
+            constant    clk_input       : integer       :=  clk_input ;           
+            constant    CPOL            : std_logic     :=  CPOL ;       
+            constant    CPHA            : std_logic     :=  CPHA        
+        );        
         port (
-            RESET_I        :   in      std_logic   ;
-            CLK_I          :   in      std_logic   ;
-            ----------------------input--------------------------------------------
-            DATA_I         :   in      std_logic_vector(data_in_length-1 downto 0);
-            VALID_I        :   in      std_logic   ;
-            READY_O        :   out     std_logic   ;
-            ----------------------output-------------------------------------------
-            SDO            :   out     std_logic   ;     --ss:slave select active low
-            SDI            :   in      std_logic   ;
-            SS             :   out     std_logic   ;
-            sclk           :   out     std_logic   
+            RESET_I     :   in      std_logic ;
+            CLK_I       :   in      std_logic ;
+            DATA_I      :   in      std_logic_vector(data_in_length-1 downto 0) ;
+            VALID_I     :   in      std_logic ;
+            READY_O     :   out     std_logic ;
+        ----------------------spi----------------------
+            SDO         :   out     std_logic ;    
+            SDI         :   in      std_logic ;
+            SS          :   out     std_logic ;
+            SCLK        :   out     std_logic   
         );
     end component;
 
     component SPI_SLAVE is
         generic (
-            constant data_in_length   : natural  := 8 ;    -- data is n bit
-            constant CPOL : std_logic := '0';              -- polarity in st_idle state
-            constant CPHA : std_logic := '0'               -- edge of clock in sampled data
+            constant data_in_length     : natural   := DATA_IN_LENGTH ;   
+            constant CPOL               : std_logic := CPOL ;             
+            constant CPHA               : std_logic := CPHA               
         );     
         port (
             reset      : in    std_logic ;
@@ -73,7 +77,7 @@ architecture STRUCTRUAL of TOP is
 
     component ERROR_CHECK is
         generic (
-            constant N  : integer := 8
+            constant N  : integer := DATA_IN_LENGTH
         );
         port (
             CLK_I     :   in    std_logic ;
@@ -85,9 +89,9 @@ architecture STRUCTRUAL of TOP is
         );
     end component;
 
-    signal valid_counter_im : std_logic :='0'   ; 
-    signal ready_counter_im : std_logic :='0'   ;
-    signal data_counter_im       : std_logic_vector(7 downto 0) := (others => '0');
+    signal valid_counter_im     : std_logic :='0'   ; 
+    signal ready_counter_im     : std_logic :='0'   ;
+    signal data_counter_im      : std_logic_vector(DATA_IN_LENGTH-1 downto 0) := (others => '0');
 
     signal SDI_master_im    : std_logic :='0' ;
     signal SDO_master_im    : std_logic :='0' ;
@@ -96,13 +100,7 @@ architecture STRUCTRUAL of TOP is
 
     signal valid_error_check_im : std_logic :='0'   ; 
     signal ready_error_check_im : std_logic :='0'   ;
-    signal data_error_check_im  : std_logic_vector(7 downto 0) := (others => '0');
-
-
-    constant T_10      : time    := 10  ns ;
-    constant T_250     : time    := 250  ns;
-
-    signal  count : Positive range 1 to 5 := 1;
+    signal data_error_check_im  : std_logic_vector(DATA_IN_LENGTH-1 downto 0) := (others => '0');
 
 begin
 
@@ -116,7 +114,7 @@ begin
             data_out   => data_counter_im       
         );  
 
-    SPI_MASTER_I0 : SPI_MASTER 
+    SPI_MASTER_TOP_I0 : SPI_MASTER_TOP 
         port map(
             RESET_I     => reset_top,
             CLK_I       => clk_top,

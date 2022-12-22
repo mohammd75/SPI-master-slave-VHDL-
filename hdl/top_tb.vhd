@@ -5,10 +5,14 @@ entity TOP_TB is
 end;
 
 architecture TESTBENCH of TOP_TB is
-    component TOP
+    component  TOP is
         generic (
-            constant DATA_IN_LENGTH   : natural  := 8     -- data is n bit
-        );     
+            constant    DATA_IN_LENGTH   : natural   := 16 ;            -- data is N bit
+            constant    CPOL             : std_logic := '0' ;          -- polarity in st_idle state
+            constant    CPHA             : std_logic := '0' ;          -- edge of clock in sampled data
+            constant    buad_rate_spi    : integer   := 10 ;           -- buad rate= bit rate= buad_rate_spi (Mbit/s) ===> buad_rate_spi (default) = 10MHz
+            constant    clk_input        : integer   := 100            -- Clock manufacturer SCLK (it is assumed) = 100 MHz 
+        );        
         port(
             RESET_TOP   :   in      std_logic   ;
             CLK_TOP     :   in      std_logic   ;

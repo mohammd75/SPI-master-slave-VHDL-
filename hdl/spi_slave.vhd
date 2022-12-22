@@ -4,7 +4,7 @@ use IEEE.std_logic_unsigned.all;
 
 entity SPI_SLAVE is
     generic (constant data_in_length   : natural  := 8 ;    -- data is n bit
-             constant CPOL : std_logic := '0';              -- polarity in st_idle state
+             constant CPOL : std_logic := '0' ;              -- polarity in st_idle state
              constant CPHA : std_logic := '0'               -- edge of clock in sampled data
             );     
     port(reset      : in    std_logic ;
@@ -24,11 +24,12 @@ architecture BEHAVIORAL of SPI_SLAVE is
     type  fsm_spi_state is (idle_fsm_spi , tx_rx_spi);
     signal present_state_spi , next_state_spi : fsm_spi_state := idle_fsm_spi ;
 
-    type  fsm_AXI_state is (idle_fsm_AXI , wait_for_buffer_full_rise , register_data_0 , register_data_1 , data_valid , wait_for_ready_rise );
+    type  fsm_AXI_state is (idle_fsm_AXI , wait_for_buffer_full_rise ,register_data_0 ,
+                             register_data_1 , data_valid , wait_for_ready_rise , wait_for_buffer_full_fall);
     signal present_state_axi , next_state_axi : fsm_AXI_state := idle_fsm_AXI ;
 
-    signal Count            : Natural       range 0 to data_in_length   := 0 ;
-    signal Count_state      : std_logic     := '0'          ;
+    signal count            : Natural       range 0 to data_in_length   := 0 ;
+    signal count_state      : std_logic     := '0'          ;
     signal buffer_full      : natural range 0 to 1 := 0     ;
 
     
@@ -40,67 +41,66 @@ architecture BEHAVIORAL of SPI_SLAVE is
 
 begin
 -------------------------------------SPI------------------------------------------------------------
-    present_state_chenge_fsm_SPI:process(reset , sclk)     --chenge present state
+    present_state_chenge_fsm_SPI:process(sclk)     --chenge present state
     begin   
-        if(CPHA = '0' and sclk'event and sclk = '1')then
+        if(CPHA = '0' and sclk'event and sclk = (not CPOL))then
             if(reset ='1')then
                 present_state_spi <= idle_fsm_spi       ;
             else
                 present_state_spi <= next_state_spi     ;
-                if(Count_state = '1')then
-                    Count <= Count + 1 ;
+                if(count_state = '1')then
+                    count <= count + 1 ;
                 else 
-                    Count <= 0 ;
+                    count <= 0 ;
                 end if;
             end if;
-        elsif(CPHA = '1' and sclk'event and sclk = '0')then
+        end if;
+        if(CPHA = '1' and sclk'event and sclk = CPOL)then
             if(reset ='1')then
                 present_state_spi <= idle_fsm_spi       ;
             else
                 present_state_spi <= next_state_spi     ;
-                if(Count_state = '1')then
-                    Count <= Count + 1 ;
+                if(count_state = '1')then
+                    count <= count + 1 ;
                 else 
-                    Count <= 0          ;
+                    count <= 0          ;
                 end if;
             end if;
         end if;
     end process present_state_chenge_fsm_SPI;
 
     next_state_chenge_fsm_SPI:process(present_state_spi , ss , Count)     --chenge next state
-    begin   
+    begin 
+
         case present_state_spi is 
-            -------------------------------------------------------        
             when idle_fsm_spi =>
                 buffer_full <= 0 ;
-                if(ss = '1')then                 
-                    next_state_spi  <=  idle_fsm_spi    ;
-                    SDO         <=  'Z'                 ;
+                if(ss = '0')then    
+                    next_state_spi  <=  tx_rx_spi ;
                 else    
-                    next_state_spi  <=  tx_rx_spi       ;
+                    next_state_spi  <=  idle_fsm_spi ;
                 end if;
             -------------------------------------------------------        
             when tx_rx_spi =>
-                if (Count < 8)then    
-                    data_in_SDI(7-Count)    <=  SDI ;           -- SDI = Slave DATA input
-                    -- data_in_SDI_0           <= data_in_SDI ;                      
-
-                    Count_state             <= '1' ;
-                    if(Count = 7)then
+                if (count < data_in_length)then    
+                    data_in_SDI((data_in_length-1) - Count) <=  SDI ;           -- SDI = Slave DATA input
+                    count_state          <= '1' ;
+                    if(count = (data_in_length-1))then
                         buffer_full <= 1 ;
-                        Count_state <= '0' ;
+                        count_state <= '0' ;
                     else
                         buffer_full <= 0 ;
                     end if;   
                 end if;
 
-                if (ss = '1') then
-                    next_state_spi  <=  idle_fsm_spi    ;
+                if (ss = '0') then
+                    next_state_spi  <=  tx_rx_spi ;
                 else
-                    next_state_spi  <=  tx_rx_spi       ;
-                end if;
-  
-        end case;                
+                    next_state_spi  <=  idle_fsm_spi ;
+                    count_state <= '0' ;
+                end if; 
+        end case;      
+
     end process next_state_chenge_fsm_SPI;
 
 --------------------------------------AXI----------------------------------------------------------
@@ -153,9 +153,16 @@ begin
             when wait_for_ready_rise =>
                 if (ready_in = '1')then 
                     valid_out       <= '0' ;
-                    next_state_axi  <=  wait_for_buffer_full_rise ;
+                    next_state_axi  <=  wait_for_buffer_full_fall ;
                 else                   
                     next_state_axi  <=  wait_for_ready_rise ;
+                end if;
+            -------------------------------------------------------
+            when wait_for_buffer_full_fall =>
+                if (buffer_full = 0)then 
+                    next_state_axi  <=  wait_for_buffer_full_rise ;
+                else                   
+                    next_state_axi  <=  wait_for_buffer_full_fall ;
                 end if;
 
         end case;                

@@ -3,7 +3,9 @@ use IEEE.std_logic_1164.all;
 use IEEE.std_logic_unsigned.all;
 
 entity  COUNTER is
-    generic( number_of_bit : integer := 8);     -- Counter is n bit
+    generic( 
+        constant number_of_bit : integer := 8                -- Counter is n bit
+    );    
     port(
         enable          : in     std_logic   ;
         reset           : in     std_logic   ;
@@ -11,7 +13,7 @@ entity  COUNTER is
         ready_in        : in     std_logic   ;
         valid_out       : out    std_logic   ;
         data_out        : out    std_logic_vector(number_of_bit-1 downto 0)
-        );
+    );
 end COUNTER;
 
 architecture BEHAVIORAL  of  COUNTER is
